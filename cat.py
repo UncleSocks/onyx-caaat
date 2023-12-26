@@ -61,6 +61,34 @@ aaaAccountingCommands = ["commands","connection","exec","network","system"]
 for index, command in enumerate(aaaAccountingCommands, start = 7):
     score += RUN_COMMAND_WITH_EMPTY_RETURN(f"aaa accounting {command}",f"1.1.{index} Set '{command}'")
 
+#Missing 1.2 Access Rules
+
+bannerCommands = ["exec","login","motd"]
+for index, command in enumerate(bannerCommands, start = 1):
+    score += RUN_COMMAND_WITH_EMPTY_RETURN(f"begin banner {command}",f"1.3.{index} Set the 'banner-text' for 'banner {command}'")
+
+score += RUN_COMMAND_WITH_EMPTY_RETURN("enable secret","1.4.1 Set 'password' for 'enable secret'")
+score += RUN_COMMAND_WITH_NO_RETURN("service password-encryption","1.4.2 Enable 'service password-encryption'")
+userSecret = send("show running-config | include username")
+userSecretList = userSecret.split("\n")
+nonCompliantUserCount = 0
+compliantUserCount = 0
+for user in userSecretList:
+    userDetail = user.split(" ")
+    if len(userDetail) < 2:
+        nonCompliantUserCount += 1
+    elif len(userDetail) >= 3 and userDetail[2] != "secret":
+        nonCompliantUserCount += 1
+    else:
+        compliantUserCount += 1
+if compliantUserCount == len(userSecretList):
+    score += 1
+else:
+    print("Not compliant on: 1.4.3 Set 'username secret' for all local users")
+
+snmpEnable = send("show snmp community")
+print(snmpEnable)
+
 
 print(score)
 print("Closing Connection")
