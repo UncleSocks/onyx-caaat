@@ -87,7 +87,17 @@ else:
     print("Not compliant on: 1.4.3 Set 'username secret' for all local users")
 
 snmpEnable = send("show snmp community")
-print(snmpEnable)
+if "snmp agent not enabled" in snmpEnable.lower():
+    score += 2
+else:
+    snmpCommunity = ["private","public"]
+    for index, community in enumerate(snmpCommunity,start=2):
+        snmpCommunityCommand = send(f"show snmp community | include {community}")
+        if not snmpCommunity:
+            score += 1
+        else:
+            print(f"Not compliant on: 1.5.{index} Unset {community} for 'snmp-server community'")
+
 
 
 print(score)
