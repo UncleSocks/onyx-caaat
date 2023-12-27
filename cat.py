@@ -97,6 +97,21 @@ else:
             score += 1
         else:
             print(f"Not compliant on: 1.5.{index} Unset {community} for 'snmp-server community'")
+    snmpRW = send("show running-config | include snmp-server community")
+    snmpRWList = snmpRW.split("\n")
+    compliantSNMP = 0
+    for snmp in snmpRWList:
+        snmpRWParse = snmp.split(" ")
+        if len(snmpRWParse) >= 4 and snmpRWParse[3] == "RW":
+            pass
+        else:
+            compliantSNMP += 1
+    if compliantSNMP == len(snmpRWList):
+        score += 1
+    else: 
+        print("Not compliant on: 1.5.4 Do not set 'RW' for any 'snmp-server community'")
+
+
 
 
 
