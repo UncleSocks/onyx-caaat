@@ -43,7 +43,6 @@ connection.enable()
 
 score = 0
 
-
 score += RUN_COMMAND_WITH_NO_RETURN("aaa new-model","1.1.1 Enable 'aaa new-model'")
 score += RUN_COMMAND_WITH_EMPTY_RETURN("aaa authentication login","1.1.2 Enable 'aaa authentication login'")
 score += RUN_COMMAND_WITH_EMPTY_RETURN("aaa authentication enable","1.1.3 Enable 'aaa authentication enable default'")
@@ -97,24 +96,59 @@ else:
             score += 1
         else:
             print(f"Not compliant on: 1.5.{index} Unset {community} for 'snmp-server community'")
-    snmpRW = send("show running-config | include snmp-server community")
-    snmpRWList = snmpRW.split("\n")
+    snmpRWACL = send("show running-config | include snmp-server community")
+    snmpRWACLList = snmpRWACL.split("\n")
     compliantSNMP = 0
-    for snmp in snmpRWList:
+    snmpWACL = 0
+    for snmp in snmpRWACLList:
         snmpRWParse = snmp.split(" ")
         if len(snmpRWParse) >= 4 and snmpRWParse[3] == "RW":
             pass
         else:
             compliantSNMP += 1
-    if compliantSNMP == len(snmpRWList):
+    if compliantSNMP == len(snmpRWACLList):
         score += 1
     else: 
         print("Not compliant on: 1.5.4 Do not set 'RW' for any 'snmp-server community'")
+    for snmpACL in snmpRWACLList:
+        snmpACLParse = snmpACL.split(" ")
+        if len(snmpACLParse) >= 5:
+            snmpWACL += 1
+            print(snmpACLParse)
+        else:
+            pass
+    if snmpWACL == len(snmpRWACLList):
+        score += 1
+    else:
+        print("Not compliant on: 1.5.5 Set the ACL for each 'snmp-server community'")
+    snmpACL = send("show ip access-list")
+    if not snmpACL:
+        print("Not compliant on: 1.5.6 Create an 'access-list' for use with SNMP")
+    else:
+        score += 1
+    score += RUN_COMMAND_WITH_EMPTY_RETURN("snmp-server host","1.5.7 Set 'snmp-server host' when using SNMP")
+    score += RUN_COMMAND_WITH_EMPTY_RETURN("snmp-server enable traps snmp","1.5.8 Set 'snmp-server enable traps snmp'")
+
+    snmpGroups = send("show snmp group | include groupname")
+    pattern = re.compile(r'groupname:\s+(\w+)\s+security model:(.*(?:\n|$))')
+    matches = pattern.findall(snmpGroups)
+    groupList = []
+
+    for group in matches:
+        groupname, security_model = group
+        security_model_list = [model.strip() for model in security_model.split(",")]
+        existing_entry = next((entry for entry in groupList if entry["groupname"] == groupname), None)
+        if existing_entry:
+            existing_entry["securityModels"].extend(security_model_list)
+        else:
+            groupList.append({"groupname": groupname, "securityModels": security_model_list})
+    for entry in groupList:
+        if "v3" in entry["securityModels"]:
+            print(entry)
+
+        
 
 
-
-
-
-print(score)
+print(score) 
 print("Closing Connection")
 connection.disconnect
