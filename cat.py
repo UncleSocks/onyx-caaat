@@ -142,11 +142,38 @@ else:
             existing_entry["securityModels"].extend(security_model_list)
         else:
             groupList.append({"groupname": groupname, "securityModels": security_model_list})
-    for entry in groupList:
-        if "v3" in entry["securityModels"]:
-            print(entry)
+    compliantGroup = 0 
+    for group in groupList:
+        # and not any(model in ['v1','v2'] for model in group['securityModels'])
+        if any('v3' in model for model in group['securityModels']) and any('priv' in model for model in group['securityModels']):
+            compliantGroup += 1
+        else:
+            print(f"Groupname: {group['groupname']} does not contain 'v3' in its security models.")
+    if compliantGroup == len(groupList):
+        score += 1    
+    else: 
+        print("Not compliant on: Set 'priv' for each 'snmp-server group' using SNMPv3")
 
-        
+    snmpUser = send("show snmp user")
+    pattern = re.compile(r'User\ name:\s+(?P<username>\w+)\nEngine\ ID:\s+(?P<engineID>[\w\d]+)\nstorage-type:\s+(?P<storageType>\S+\s+\S+)\nAuthentication\ Protocol:\s+(?P<authProtocol>\w+)\nPrivacy\ Protocol:\s+(?P<privacyProtocol>\w+)\nGroup-name:\s+(?P<groupName>\w+)\n', re.VERBOSE)
+    matches = pattern.finditer(snmpUser)
+    userList = []
+    compliantUser = 0
+    for match in matches:
+        userDict = match.groupdict()
+        userList.append(userDict)
+    for user in userList:
+        if user["privacyProtocol"] == "AES128":
+            compliantUser += 1
+        else:
+            print(f"User {user['username']} does not use AES128")
+    if compliantUser == len(userList):
+        score += 1
+    else:
+        print("Not compliant on: Require 'aes 128' as minimum for 'snmp-server user' when using SNMPv3")
+
+
+
 
 
 print(score) 
