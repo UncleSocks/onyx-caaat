@@ -43,6 +43,8 @@ connection.enable()
 
 score = 0
 
+#Take into account manual disabling of required services using the "no" keyword.
+
 score += RUN_COMMAND_WITH_NO_RETURN("aaa new-model","1.1.1 Enable 'aaa new-model'")
 score += RUN_COMMAND_WITH_EMPTY_RETURN("aaa authentication login","1.1.2 Enable 'aaa authentication login'")
 score += RUN_COMMAND_WITH_EMPTY_RETURN("aaa authentication enable","1.1.3 Enable 'aaa authentication enable default'")
@@ -172,7 +174,95 @@ else:
     else:
         print("Not compliant on: Require 'aes 128' as minimum for 'snmp-server user' when using SNMPv3")
 
+#Section 2: Control Plane
+        
+hostname = send("show running-config | include hostname")
+hostnameParse = hostname.split(" ")
+if hostnameParse[1] == "Router":
+    print("Not compliant on: 2.1.1.1.1 Set the 'hostname'")
+else:
+    score += 1
 
+score += RUN_COMMAND_WITH_EMPTY_RETURN("domain name","2.1.1.1.2 Set the 'ip domain-name'")
+
+modulus = send("show crypto key mypubkey rsa")
+if not modulus:
+    print("Not compliant on: 2.1.1.3 Set 'modulus' greater than or equal to 2048 for 'crypto key generate rsa'")
+else:
+    score += 1
+
+sshInfo = send("show ip ssh")
+pattern = re.compile(r'SSH (?P<status>Enabled|Disabled) - version (?P<version>\d+\.\d+)\nAuthentication timeout: (?P<timeout>\d+) secs; Authentication retries: (?P<retries>\d+)')
+match = pattern.search(sshInfo).groupdict()
+if match['status'] == "Enabled":
+    sshTimeout = int(match['timeout'])
+    sshRetries = int(match['retries'])
+    if sshTimeout <= 60:
+        print(sshTimeout)
+        score += 1
+    else:
+        print("Not compliant on: 2.1.1.1.4 Set 'seconds' for 'ip ssh timeout'")
+    if sshRetries <= 3:
+        print(sshRetries)
+        score += 1
+    else:
+        print("2.1.1.1.4 Set maximum value for 'ip ssh authentication-retries'")
+    if match['version'] == "2.0":
+        score += 1
+    else:
+        print("Not compliant on: 2.1.1.2 Set version for 'ip ssh version'")
+else:
+    print("SSH is disabled")
+
+cdp = send("show cdp")
+if "cdp is not enabled" in cdp.lower():
+    score += 1
+else:
+    print("Not compliant on: 2.1.2 Set 'no cdp run'")
+
+bootp = send("show running-config | include bootp")
+if "no ip bootp server" in bootp.lower():
+    score += 1
+else:
+    print("Not compliant on: 2.1.3 Set 'no ip bootp server'")
+
+dhcp = send("show running-config | include dhcp")
+if not dhcp:
+    score += 1
+else:
+    print("Not compliant on: 2.1.4 Set 'no service dhcp'")
+
+identd = send("show running-config | include identd")
+if not identd:
+    score += 1
+else:
+    print("Not compliant on: 2.1.5 Set 'no ip identd'")
+
+score += RUN_COMMAND_WITH_EMPTY_RETURN("service tcp-keepalives-in","Not compliant on: 2.1.6 Set 'service-tcp-keepalives-in'")
+
+servicePad = send("show running-config | include service pad")
+if "no service pad" in servicePad.lower():
+    score += 1
+else:
+    print("Not compliant on: 2.1.8 Set 'no service pad'")
+
+score += RUN_COMMAND_WITH_EMPTY_RETURN("logging on","2.2.1 Set 'logging on'")
+score += RUN_COMMAND_WITH_EMPTY_RETURN("logging buffered","2.2.2 Set 'buffer size' for 'logging buffered'")
+score += RUN_COMMAND_WITH_EMPTY_RETURN("logging console critical","2.2.3 Set 'logging console critical'")
+
+logHost = send("show logging | include logging host")
+if not logHost:
+    print("Not compliant on: 2.2.4 Set IP address for 'logging host'")
+else:
+    score += 1
+
+timestampDebug = send("show running | include service timestamps")
+if not timestampDebug:
+    print("Not compliant on: 2.2.6 Set 'service timestamps debug datetime'")
+else:
+    score += 1
+
+score += RUN_COMMAND_WITH_EMPTY_RETURN("logging source-interface Loopback","2.2.7 Set 'logging source interface'")
 
 
 
