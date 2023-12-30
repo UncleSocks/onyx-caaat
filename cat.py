@@ -263,8 +263,44 @@ else:
     score += 1
 
 score += RUN_COMMAND_WITH_EMPTY_RETURN("logging source-interface Loopback","2.2.7 Set 'logging source interface'")
+score += RUN_COMMAND_WITH_EMPTY_RETURN("ntp authenticate","2.3.1 Set 'ntp authenticate'")
+score += RUN_COMMAND_WITH_EMPTY_RETURN("ntp authentication-key","2.3.1.2 Set 'ntp authentication-key'")
+score += RUN_COMMAND_WITH_EMPTY_RETURN("ntp trusted-key","2.3.1.3 Set the 'ntp trusted-key'")
 
+ntpServer = send("show running-config | include ntp server")
+compliantNtpServer = 0
+ntpServerParse = ntpServer.split("\n")
+if not ntpServer:
+    print("Not compliant on: 2.3.1.4 Set 'key' for each 'ntp server'")
+else:
+    for server in ntpServerParse:
+        serverParse = server.split()
+        if len(serverParse) > 3 and serverParse[3] == "key":
+            compliantNtpServer += 1
+        else:
+            pass
+if compliantNtpServer == len(ntpServerParse):
+    score += 1
+else:
+    print("Not compliant on: 2.3.1.4 Set 'key' for each 'ntp server'")
 
+score += RUN_COMMAND_WITH_EMPTY_RETURN("show ntp associations","2.3.2 Set 'ip address' for 'ntp server'")
+
+loopbackInt = send("show ip interface brief | include Loopback")
+if not loopbackInt:
+    print("Not compliant on: 2.4.1 Create a single 'interface loopback'")
+else:
+    score += 1
+
+tacacsInt = send("show running-config | include tacacs source-interface Loopback")
+radiusInt = send("show running-config | include radius source-interface Loopback")
+if not tacacsInt and radiusInt:
+    print("Not complaint on: 2.4.2 Set AAA 'source-interface'")
+else:
+    score += 1
+
+score += RUN_COMMAND_WITH_EMPTY_RETURN("ntp source Loopback","2.4.3 Set 'ntp source' to Loopback Interface")
+score += RUN_COMMAND_WITH_EMPTY_RETURN("tftp source-interface Loopback","2.4.4 Set 'ip tftp source-interface' to the Loopback Interface")
 
 print(score) 
 print("Closing Connection")
