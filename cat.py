@@ -302,6 +302,42 @@ else:
 score += RUN_COMMAND_WITH_EMPTY_RETURN("ntp source Loopback","2.4.3 Set 'ntp source' to Loopback Interface")
 score += RUN_COMMAND_WITH_EMPTY_RETURN("tftp source-interface Loopback","2.4.4 Set 'ip tftp source-interface' to the Loopback Interface")
 
+score += RUN_COMMAND_WITH_EMPTY_RETURN("ip source-route","3.1.1 Set 'no ip source-route'")
+
+proxyArp = send("show ip interface")
+pattern = re.compile(r'^(?P<interface>\S+).*?\n(?: {2}(?!Local).*\n)* {2}Proxy ARP is (?P<proxy_arp>enabled|disabled)\s*$', re.MULTILINE)
+matches = pattern.findall(proxyArp)
+print(matches)
+compliantInt = 0
+for match in matches:
+    if match[1] == "enabled":
+        print(f"Interface {match[0]} has Proxy ARP {match[1]}")
+    else:
+        compliantInt += 1
+if compliantInt == len(matches):
+    score += 1
+else:
+    print("Not compliant on: 3.1.2 Set 'no ip proxy-arp")
+
+tunnelInt = send("show ip interface brief | include Tunnel")
+if not tunnelInt:
+    score += 1
+else:
+    print("Not compliant on: 3.1.3 Set 'no interface tunnel'")
+
+verifySource = send("show ip interface")
+pattern = re.compile(r'^(?P<interfaces>\S+).*?IP verify source reachable-via RX', re.MULTILINE | re.DOTALL)
+matches = pattern.finditer(verifySource)
+if not matches:
+    print("Not compliant on: 3.1.4 Set 'ip verify unicast source reachable-via'")
+else:
+    for match in matches:
+        interface_name = match.group('interfaces')
+        print(f"{interface_name} has 'IP verify source reachable-via RX' enabled")
+    score += 1
+
+
+
 print(score) 
 print("Closing Connection")
 connection.disconnect
