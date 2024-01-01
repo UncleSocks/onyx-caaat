@@ -336,6 +336,52 @@ else:
         print(f"{interface_name} has 'IP verify source reachable-via RX' enabled")
     score += 1
 
+#3.2 Boarder Router Filtering Missing (MANUAL)
+
+routingCheck = send("show running-config | include router")
+routingCheckParse = routingCheck.split("\n")
+hasEigrp = False
+if not routingCheck:
+    print("Dynamic routing not enabled")
+else:
+    for router in routingCheckParse:
+        routerParsed = router.split(" ")
+        if routerParsed[1] == "eigrp":
+            hasEigrp = True
+        else:
+            print("Other dynamic routing")
+    if hasEigrp == True:
+        eigrpKey = send("show running-config | section key chain")
+        if not eigrpKey:
+            print("Not compliant on: 3.3.1.1 Set 'key chain'")
+            print("Not compliant on: 3.3.1.2 Set 'key'")
+            print("Not compliant on: 3.3.1.3 Set 'key-string'")
+        else:
+            pattern = re.compile(r'key chain (?P<chain>\S+)\n(?: key (?P<key>\d+)(?:\n  key-string (?P<key_string>\S+))?)?')
+            matches = pattern.finditer(eigrpKey)
+            result = []
+            for match in matches:
+                chain = match.group('chain')
+                key = match.group('key') or 'null'
+                key_string = match.group('key_string') or 'null'
+                result.append({'chain': chain, 'key': key, 'key_string': key_string})
+                hasIncompleteEIGRP = False
+                if key_string == "null":
+                    print(f"Chain {match['chain']} does not have a key chain")
+                    hasIncompleteEIGRP = True
+                else:
+                    pass
+            if hasIncompleteEIGRP == True:
+                score += 2
+                print("Not compliant on: 3.3.1.1 Set 'key chain'")
+            else:
+                score += 3
+
+        eigrpAuth = send("show running-config | section router eigrp")
+
+                
+
+
 
 
 print(score) 
