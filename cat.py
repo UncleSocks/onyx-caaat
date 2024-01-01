@@ -43,6 +43,12 @@ connection.enable()
 
 score = 0
 
+eigrpAuth = send("show running-config | section router eigrp")
+pattern = re.compile(r'router eigrp (?P<vrf>[A-Za-z]+\d*[A-Za-z]*)\n(.*?)(?=\nrouter|\Z)', re.DOTALL)
+matches = pattern.findall(eigrpAuth)
+print(matches)
+
+
 #Take into account manual disabling of required services using the "no" keyword.
 
 score += RUN_COMMAND_WITH_NO_RETURN("aaa new-model","1.1.1 Enable 'aaa new-model'")
@@ -377,7 +383,11 @@ else:
             else:
                 score += 3
 
-        eigrpAuth = send("show running-config | section router eigrp")
+            eigrpAuth = send("show running-config | section router eigrp")
+            pattern = re.compile(r'router eigrp (?P<vrf>[A-Za-z]+\d*[A-Za-z]*)\n(.*?)(?=\nrouter|\Z)', re.DOTALL)
+            matches = pattern.findall(eigrpAuth)
+            print(matches)
+
 
                 
 
