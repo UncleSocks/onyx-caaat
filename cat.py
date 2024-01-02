@@ -43,12 +43,6 @@ connection.enable()
 
 score = 0
 
-eigrpAuth = send("show running-config | section router eigrp")
-pattern = re.compile(r'router eigrp (?P<vrf>[A-Za-z]+\d*[A-Za-z]*)\n(.*?)(?=\nrouter|\Z)', re.DOTALL)
-matches = pattern.findall(eigrpAuth)
-print(matches)
-
-
 #Take into account manual disabling of required services using the "no" keyword.
 
 score += RUN_COMMAND_WITH_NO_RETURN("aaa new-model","1.1.1 Enable 'aaa new-model'")
@@ -383,15 +377,62 @@ else:
             else:
                 score += 3
 
-            eigrpAuth = send("show running-config | section router eigrp")
-            pattern = re.compile(r'router eigrp (?P<vrf>[A-Za-z]+\d*[A-Za-z]*)\n(.*?)(?=\nrouter|\Z)', re.DOTALL)
-            matches = pattern.findall(eigrpAuth)
-            print(matches)
-
-
-                
-
-
+        eigrpAuth = send("show running-config | section router eigrp")
+        pattern = re.compile(r'router eigrp (?P<vrf>[A-Za-z]+\d*[A-Za-z]*)\n(?P<config>.*?)(?=\nrouter|\Z)', re.DOTALL)
+        matches = pattern.finditer(eigrpAuth)
+        noMode = False
+        noChain = False
+        wrongInt = False
+        for match in matches:
+            matchDict = match.groupdict()
+            patternAF = re.compile(r' address-family ipv4 unicast autonomous-system (?P<as>\d+)\n(?P<afConfig>.*?)(?=\sexit-address-family|\Z)',re.DOTALL)
+            matchAF = patternAF.findall(matchDict['config'])
+            if not matchAF:
+                print("Not compliant on: 3.3.1.4 Set 'address-family ipv4 autonomous-system'")
+                print("Not compliant on: 3.3.1.5 Set 'af-interface default'")
+                print("Not compliant on: 3.3.1.6 Set 'authentication key-chain'")
+                print("Not compliant on: 3.3.1.7 Set 'authentication mode md5'")
+            else:
+                print(f"EIGRP VRF {matchDict['vrf']} contains autonomous system {matchAF[0][0]}")
+                afConfig = matchAF[0][1]
+                score += 1
+                patternInt = re.compile(r'af-interface (?P<interface>\S+)(?:\n\s+authentication mode (?P<mode>\S+))?(?:\n\s+authentication key-chain (?P<chain>\S+))?', re.DOTALL)
+                matchesInt = patternInt.finditer(afConfig)
+                for matchedInt in matchesInt:
+                    af_interface = matchedInt.group('interface')
+                    auth_mode = matchedInt.group('mode') or "null"
+                    auth_key_chain = matchedInt.group('chain') or "null"
+            if af_interface != "default":
+                wrongInt = True
+                print(f"EIGRP VRF {matchDict['vrf']} is using af-interface {af_interface}, instead of 'default'")
+            elif af_interface == "default" and (auth_mode != "md5" or auth_mode == "null"):
+                noMode = True
+                print(f"EIGRP VRF {matchDict['vrf']} is not using md5 authentication mode")
+            elif af_interface == "default" and auth_key_chain == "null":
+                noChain = True
+                print(f"EIGRP VRF {matchDict['vrf']} does not have an authentication key-chain")
+            else:
+                pass
+        if wrongInt == True:
+            print("Not compliant on: 3.3.1.5 Set 'af-interface default'")
+            print("Not compliant on: 3.3.1.6 Set 'authentication key-chain'")
+            print("Not compliant on: 3.3.1.7 Set 'authentication mode md5'")
+        elif wrongInt == False and noChain == True and noMode == True:
+            print("Not compliant on: 3.3.1.6 Set 'authentication key-chain'")
+            print("Not compliant on: 3.3.1.7 Set 'authentication mode md5'")
+            score += 1
+        elif wrongInt == False and noChain == False and noMode == True:
+            print("Not compliant on: 3.3.1.7 Set 'authentication mode md5'")
+            score += 2
+        elif wrongInt == False and noChain == True and noMode == False:
+            print("Not compliant on: 3.3.1.6 Set 'authentication key-chain'")
+            score += 2
+        else:
+            score += 3
+        
+        score += RUN_COMMAND_WITH_EMPTY_RETURN("key-chain","3.3.1.8 Set 'ip authentication key-chain eigrp'")
+        score += RUN_COMMAND_WITH_EMPTY_RETURN("authentication mode","3.3.1.9 Set 'ip authentication mode eigrp'")
+        
 
 
 print(score) 
