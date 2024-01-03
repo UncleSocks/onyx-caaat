@@ -459,6 +459,32 @@ else:
             print("Not compliant on: 3.3.2.1 Require OSPF Authentication if Protocol is Used")
         score += RUN_COMMAND_WITH_EMPTY_RETURN("ip ospf message-digest","3.3.2.2 Set 'ip ospf message-digest-key md5'")
     if hasRip == True:
+        print("RIP enabled")
+        ripKey = send("show running-config | section key chain")
+        if not ripKey:
+            print("Not compliant on: 3.3.3.1 Set 'key chain'")
+            print("Not compliant on: 3.3.3.2 Set 'key'")
+            print("Not compliant on: 3.3.3.3 Set 'key-string'")
+        else:
+            pattern = re.compile(r'key chain (?P<chain>\S+)\n(?: key (?P<key>\d+)(?:\n  key-string (?P<key_string>\S+))?)?')
+            matches = pattern.finditer(ripKey)
+            for match in matches:
+                chain = match.group('chain')
+                key = match.group('key') or 'null'
+                key_string = match.group('key_string') or 'null'
+                hasIncompleteRip = False
+                if key_string == 'null':
+                    print(f"Chain {match['chain']} does not have a key chain")
+                    hasIncompleteRip = True
+                else:
+                    pass
+            if hasIncompleteRip == True:
+                score += 2
+                print("Not compliant on: 3.3.3.3 Set 'key-string'")
+            else:
+                score += 3
+            score += RUN_COMMAND_WITH_EMPTY_RETURN("rip authentication key-chain","3.3.3.4 Set 'ip rip authentication key-chain'")
+            score += RUN_COMMAND_WITH_EMPTY_RETURN("rip authentication mode","3.3.3.5 Set 'rip ip authentication mode'")
         
 
 #re.compile(r'router eigrp (?P<vrf>[A-Za-z]+\d*[A-Za-z]*)\n(?P<config>.*?)(?=\nrouter|\Z)', re.DOTALL)
