@@ -341,6 +341,8 @@ else:
 routingCheck = send("show running-config | include router")
 routingCheckParse = routingCheck.split("\n")
 hasEigrp = False
+hasOspf = False
+hasRip = False
 if not routingCheck:
     print("Dynamic routing not enabled")
 else:
@@ -348,6 +350,10 @@ else:
         routerParsed = router.split(" ")
         if routerParsed[1] == "eigrp":
             hasEigrp = True
+        elif routerParsed[1] == "ospf":
+            hasOspf = True
+        elif routerParsed[1] == "rip":
+            hasRip = True
         else:
             print("Other dynamic routing")
     if hasEigrp == True:
@@ -432,7 +438,31 @@ else:
         
         score += RUN_COMMAND_WITH_EMPTY_RETURN("key-chain","3.3.1.8 Set 'ip authentication key-chain eigrp'")
         score += RUN_COMMAND_WITH_EMPTY_RETURN("authentication mode","3.3.1.9 Set 'ip authentication mode eigrp'")
+    if hasOspf == True:
+        ospfAuth = send("show running-config | section router ospf")
+        pattern = re.compile(r"router ospf (?P<router_number>\d+)(?:\s*area (?P<area_number>\d+) authentication(?:\s+(?P<authentication_value>\S+))?)?")
+        matches = pattern.finditer(ospfAuth)
+        totalOSPF = 0
+        compliantOSPF = 0
+        for match in matches:
+            routerNum = match.group('router_number')
+            areaNum = match.group('area_number')
+            auth = match.group('authentication_value') or "null"
+            totalOSPF += 1
+            if auth == "message-digest":
+                compliantOSPF += 1
+            else:
+                print(f"OSPF {routerNum} with area number {areaNum} has authentication {auth}")
+        if compliantOSPF == totalOSPF:
+            score += 1
+        else:
+            print("Not compliant on: 3.3.2.1 Require OSPF Authentication if Protocol is Used")
+        score += RUN_COMMAND_WITH_EMPTY_RETURN("ip ospf message-digest","3.3.2.2 Set 'ip ospf message-digest-key md5'")
+    if hasRip == True:
         
+
+#re.compile(r'router eigrp (?P<vrf>[A-Za-z]+\d*[A-Za-z]*)\n(?P<config>.*?)(?=\nrouter|\Z)', re.DOTALL)
+
 
 
 print(score) 
