@@ -44,7 +44,6 @@ connection.enable()
 score = 0
 
 
-
 #Take into account manual disabling of required services using the "no" keyword.
 
 score += RUN_COMMAND_WITH_NO_RETURN("aaa new-model","1.1.1 Enable 'aaa new-model'")
@@ -503,10 +502,7 @@ else:
                 neighbor = neigh.group('neighbor')
                 password = neigh.group("password") or "No password"
                 print(f"{neighbor} {password}")
-                if not neighWPass[neighbor]:
-                    neighWPass[neighbor] = password != "No password"
-                else:
-                    pass
+                neighWPass[neighbor] = password != "No password"
             if False in neighWPass.values():
                 print("Not compliant on: 3.3.4.1 Set 'neighbor password'")
             else:
