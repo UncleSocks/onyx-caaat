@@ -503,7 +503,10 @@ else:
                 neighbor = neigh.group('neighbor')
                 password = neigh.group("password") or "No password"
                 print(f"{neighbor} {password}")
-                neighWPass[neighbor] = password != "No password"
+                if not neighWPass[neighbor]:
+                    neighWPass[neighbor] = password != "No password"
+                else:
+                    pass
             if False in neighWPass.values():
                 print("Not compliant on: 3.3.4.1 Set 'neighbor password'")
             else:
