@@ -43,6 +43,8 @@ connection.enable()
 
 score = 0
 
+
+
 #Take into account manual disabling of required services using the "no" keyword.
 
 score += RUN_COMMAND_WITH_NO_RETURN("aaa new-model","1.1.1 Enable 'aaa new-model'")
@@ -343,6 +345,7 @@ routingCheckParse = routingCheck.split("\n")
 hasEigrp = False
 hasOspf = False
 hasRip = False
+hasBgp = False
 if not routingCheck:
     print("Dynamic routing not enabled")
 else:
@@ -354,6 +357,8 @@ else:
             hasOspf = True
         elif routerParsed[1] == "rip":
             hasRip = True
+        elif routerParsed[1] == "bgp":
+            hasBgp = True
         else:
             print("Other dynamic routing")
     if hasEigrp == True:
@@ -485,7 +490,25 @@ else:
                 score += 3
             score += RUN_COMMAND_WITH_EMPTY_RETURN("rip authentication key-chain","3.3.3.4 Set 'ip rip authentication key-chain'")
             score += RUN_COMMAND_WITH_EMPTY_RETURN("rip authentication mode","3.3.3.5 Set 'rip ip authentication mode'")
-        
+    if hasBgp == True:
+        print("BGP Enabled")
+        bgpAuth = send("show running-config | section router bgp")
+        pattern = re.compile(r"router bgp (?P<as>\d+)\n(?P<config>.*?)(?=\nrouter|\Z)", re.DOTALL)
+        for match in pattern.finditer(bgpAuth):
+            bgp_as = match.group("as")
+            config = match.group("config")
+            patternNeighbor = re.compile(r"neighbor\s+(?P<neighbor>[\w\d\.\-]+)(?:.*\s+password\s+(?P<password>\S+))?", re.MULTILINE)
+            neighWPass = {}
+            for neigh in patternNeighbor.finditer(config):
+                neighbor = neigh.group('neighbor')
+                password = neigh.group("password") or "No password"
+                print(f"{neighbor} {password}")
+                neighWPass[neighbor] = password != "No password"
+            if False in neighWPass.values():
+                print("Not compliant on: 3.3.4.1 Set 'neighbor password'")
+            else:
+                print("CHECK TRUE")
+
 
 #re.compile(r'router eigrp (?P<vrf>[A-Za-z]+\d*[A-Za-z]*)\n(?P<config>.*?)(?=\nrouter|\Z)', re.DOTALL)
 
