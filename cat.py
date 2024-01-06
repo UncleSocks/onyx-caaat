@@ -44,6 +44,13 @@ connection.enable()
 score = 0
 
 
+
+        
+
+
+
+
+
 #Take into account manual disabling of required services using the "no" keyword.
 
 score += RUN_COMMAND_WITH_NO_RETURN("aaa new-model","1.1.1 Enable 'aaa new-model'")
@@ -496,17 +503,88 @@ else:
         for match in pattern.finditer(bgpAuth):
             bgp_as = match.group("as")
             config = match.group("config")
-            patternNeighbor = re.compile(r"neighbor\s+(?P<neighbor>[\w\d\.\-]+)(?:.*\s+password\s+(?P<password>\S+))?", re.MULTILINE)
-            neighWPass = {}
-            for neigh in patternNeighbor.finditer(config):
-                neighbor = neigh.group('neighbor')
-                password = neigh.group("password") or "No password"
-                print(f"{neighbor} {password}")
-                neighWPass[neighbor] = password != "No password"
-            if False in neighWPass.values():
+            #patternNeighbor = re.compile(r"neighbor\s+(?P<neighbor>[\w\d\.\-]+)(?:.*?\s+peer-group\s+(?P<peer_group>\w+))?(?:.*?\s+remote-as\s+(?P<remote_as>\d+))?(?:.*?\s+password\s+(?P<password>\S+))?", re.MULTILINE | re.DOTALL)
+            patternNeighbor = re.compile(r'neighbor\s+(?P<neighbor>[\w\.]+)\s+(?P<neighconf>.*?)(?=\n|\Z)', re.DOTALL)
+
+            neighbors = []
+            peers = []
+            compliantNeigh = 0
+            totalNeigh = 0
+
+            for matches in patternNeighbor.finditer(config):
+                neighbor = matches.group('neighbor')
+                neighconfig = matches.group('neighconf')
+
+                if re.match(r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$", neighbor):
+                    existingNeigh = next((n for n in neighbors if n['neighbor'] == neighbor), None)
+
+                    if existingNeigh is None:
+                        currentNeigh = {'neighbor':neighbor,'peer-group':False,'password':False}
+                        match_peer = re.match(r'peer-group (?P<peer>\w+)', neighconfig)
+                        if match_peer:
+                            peer_group = match_peer.group('peer')
+                            currentNeigh['peer-group'] = True
+                            print(f"{neighbor} has a peer-group {currentNeigh['peer-group']} {peer_group}")
+                        match_password = re.match(r'password (?P<password>\S+)', neighconfig)
+                        if match_password:
+                            password = match_password.group('password')
+                            currentNeigh['password'] = True
+                            print(f"{neighbor} has a password {currentNeigh['password']} {password}")
+                        
+                        neighbors.append(currentNeigh)
+                    
+                    else:
+                        match_peer = re.match(r'peer-group (?P<peer>\w+)', neighconfig)
+                        if match_peer:
+                            peer_group = match_peer.group('peer')
+                            currentNeigh['peer-group'] = True
+                            print(f"{neighbor} has a peer-group {currentNeigh['peer-group']} {peer_group}")
+                        match_password = re.match(r'password (?P<password>\S+)',neighconfig)
+                        if match_password:
+                            password = match_password.group('password')
+                            currentNeigh['password'] = True
+                            print(f"{neighbor} has a password {currentNeigh['password']} {password}")
+
+
+                else:
+                    existingPeer = next((p for p in peers if p['peer'] == neighbor), None)
+
+                    if existingPeer is None:
+                        currentPeer = {'peer':neighbor,'password':False}
+                        match_password = re.match(r'password (?P<password>\S+)', neighconfig)
+                        if match_password:
+                            password = match_password.group('password')
+                            currentPeer['password'] = True
+                            print(f"Peer {neighbor} has a password {currentPeer['password']} {password}")
+                        
+                        peers.append(currentPeer)
+
+                    else:
+                        match_password = re.match(r'password (?P<password>\S+)', neighconfig)
+                        if match_password:
+                            password = match_password.group('password')
+                            currentPeer['password'] = True
+                            print(f"Peer {neighbor} has a password {currentPeer['password']} {password}")
+                        
+            for neighbor in neighbors:
+                if neighbor['peer-group'] == False and neighbor['password'] == False:
+                    print(f"{neighbor['neighbor']} is not part of a peer and does not have a password")
+                    totalNeigh += 1
+                elif neighbor['peer-group'] == False and neighbor['password'] == True:
+                    print(f"{neighbor['neighbor']} is not part of a peer and does have a password")
+                    totalNeigh += 1
+                    compliantNeigh += 1
+                else:
+                    print(f"{neighbor} is part of a peer-group")
+            
+            peer_check = any('password' in peer and not peer['password'] for peer in peers)
+            print(peer_check)
+
+            if totalNeigh != compliantNeigh or peer_check:
                 print("Not compliant on: 3.3.4.1 Set 'neighbor password'")
             else:
-                print("CHECK TRUE")
+                print("Compliant")
+                score += 1
 
 
 #re.compile(r'router eigrp (?P<vrf>[A-Za-z]+\d*[A-Za-z]*)\n(?P<config>.*?)(?=\nrouter|\Z)', re.DOTALL)
