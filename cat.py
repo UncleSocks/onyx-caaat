@@ -1,6 +1,12 @@
-from netmiko import ConnectHandler
 import re
+from netmiko import ConnectHandler
+from maskpass import askpass
 
+
+def ssh_login(ip_address, username, password, enable_password):
+    connection = ConnectHandler(host = ip_address, username = username, password = password, secret = enable_password, device_type = 'cisco_ios')
+    connection.enable()
+    return connection.send_command
 
 def COMPLIANCE_CHECK_WITH_EMPTY_RETURN(commandOutput,complianceString):
     if not commandOutput:
@@ -32,14 +38,17 @@ def AUTH_LINE_PARSER(line):
 
 
 
-target = input("Enter Target IP Address: ")
-username = input("Enter Username: ")
-password = input("Enter Password: ")
-enable = input("Enter Enable: ")
+ip_address = input("IP Address: ")
+username = input("Username: ")
+password = askpass("Password: ")
+enable_password = askpass("Enable: ")
 
-connection = ConnectHandler(host=target,username=username,password=password,secret=enable,device_type='cisco_ios')
-send = connection.send_command
-connection.enable()
+try:
+    send = ssh_login(ip_address, username, password, enable_password)
+except:
+    print("Error 0001 - Unable to login to the target router, check IP address and login credentials.")
+    print("Exiting the Onyx: CAAAT...")
+    exit()
 
 score = 0
 
