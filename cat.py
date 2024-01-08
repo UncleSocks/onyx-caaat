@@ -43,8 +43,6 @@ connection.enable()
 
 score = 0
 
-
-
 #Take into account manual disabling of required services using the "no" keyword.
 
 score += RUN_COMMAND_WITH_NO_RETURN("aaa new-model","1.1.1 Enable 'aaa new-model'")
@@ -82,6 +80,24 @@ else:
     print("Not compliant on: 1.2.1 Set 'privilege 1' for local users")
     print(localUsers)
 
+
+vty = send("show running-config | section vty")
+pattern = re.search(r'transport input (?P<input>ssh|telnet|all|none|telnet ssh)(?=\n|\Z)', vty)
+if pattern:
+    input = pattern.group('input')
+    if input == 'ssh':
+        score += 1
+    else:
+        print("Not compliant on 1.2.2 Set 'transport input ssh' for 'line vty' connections")
+        print(f"Current configuration of transport input is {input}")
+else:
+    print("Transport input not present")
+
+aclVty = send("show ip access-list")
+if not aclVty:
+    print("Not compliant on: 1.2.4 Create 'access-list' for use with 'line vty'")
+else:
+    score += 1
 
 bannerCommands = ["exec","login","motd"]
 for index, command in enumerate(bannerCommands, start = 1):
