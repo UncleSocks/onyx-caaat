@@ -45,12 +45,6 @@ score = 0
 
 
 
-        
-
-
-
-
-
 #Take into account manual disabling of required services using the "no" keyword.
 
 score += RUN_COMMAND_WITH_NO_RETURN("aaa new-model","1.1.1 Enable 'aaa new-model'")
@@ -71,6 +65,23 @@ for index, command in enumerate(aaaAccountingCommands, start = 7):
     score += RUN_COMMAND_WITH_EMPTY_RETURN(f"aaa accounting {command}",f"1.1.{index} Set '{command}'")
 
 #Missing 1.2 Access Rules
+
+priv = send("show running-config | include privilege")
+patternPriv = re.compile(r'username (?P<user>\S+) privilege (?P<level>\d+)', re.MULTILINE)
+localUsers = []
+for matchPriv in patternPriv.finditer(priv):
+    user = matchPriv.group('user')
+    level = matchPriv.group('level')
+    currentUser = {"user":user, "level":level}
+    localUsers.append(currentUser)
+
+if not localUsers:
+    score += 1
+    print("Compliant!")
+else:
+    print("Not compliant on: 1.2.1 Set 'privilege 1' for local users")
+    print(localUsers)
+
 
 bannerCommands = ["exec","login","motd"]
 for index, command in enumerate(bannerCommands, start = 1):
