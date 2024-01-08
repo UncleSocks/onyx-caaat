@@ -62,7 +62,6 @@ aaaAccountingCommands = ["commands","connection","exec","network","system"]
 for index, command in enumerate(aaaAccountingCommands, start = 7):
     score += RUN_COMMAND_WITH_EMPTY_RETURN(f"aaa accounting {command}",f"1.1.{index} Set '{command}'")
 
-#Missing 1.2 Access Rules
 
 priv = send("show running-config | include privilege")
 patternPriv = re.compile(r'username (?P<user>\S+) privilege (?P<level>\d+)', re.MULTILINE)
@@ -72,7 +71,6 @@ for matchPriv in patternPriv.finditer(priv):
     level = matchPriv.group('level')
     currentUser = {"user":user, "level":level}
     localUsers.append(currentUser)
-
 if not localUsers:
     score += 1
     print("Compliant!")
@@ -82,22 +80,54 @@ else:
 
 
 vty = send("show running-config | section vty")
-pattern = re.search(r'transport input (?P<input>ssh|telnet|all|none|telnet ssh)(?=\n|\Z)', vty)
-if pattern:
-    input = pattern.group('input')
-    if input == 'ssh':
-        score += 1
+vtyPattern = re.compile(r'line vty (?P<start>\d+) (?P<end>\d+)\n(?P<config>.*?)(?=\nline|\Z)', re.MULTILINE | re.DOTALL)
+match = vtyPattern.finditer(vty)
+nonCompliantInput = 0
+for line in match:
+    start = line.group('start')
+    end = line.group('end')
+    config = line.group('config')
+    inputPattern = re.search(r'transport input (?P<input>ssh|telnet|all|none|telnet ssh)(?=\n|\Z)', config)
+    if inputPattern:
+        input = inputPattern.group('input')
+        if input == "ssh":
+            pass
+        else:
+            print(f"Line {start} {end} has {input} transport input")
+            nonCompliantInput += 1
     else:
-        print("Not compliant on 1.2.2 Set 'transport input ssh' for 'line vty' connections")
-        print(f"Current configuration of transport input is {input}")
+        print("Transport input not present")
+
+if nonCompliantInput == 0:
+    score += 1
 else:
-    print("Transport input not present")
+    print("Not compliant on: 1.2.2 Set 'transport input ssh' for 'line vty' connections")
 
 aclVty = send("show ip access-list")
+noACCVTY = 0
 if not aclVty:
     print("Not compliant on: 1.2.4 Create 'access-list' for use with 'line vty'")
+    print("Not compliant on: 1.2.5 Set 'access-class' for 'line vty'")
 else:
     score += 1
+    vty = send("show running-config | section vty")
+    vtyPattern = re.compile(r'line vty (?P<start>\d+) (?P<end>\d+)\n(?P<config>.*?)(?=\nline|\Z)', re.MULTILINE | re.DOTALL)
+    match = vtyPattern.finditer(vty)
+    for line in match:
+        start = line.group('start')
+        end = line.group('end')
+        config = line.group('config')
+        accPattern = re.search(r'access-class (?P<ac>\d+)\s+(?P<dir>\S+)(?=\n|\Z)', config)
+        if accPattern:
+            print(f"access-class found on vty line {start} {end}")
+        else:
+            print(f"No access-class found on line vty {start} {end}")
+            noACCVTY += 1
+if noACCVTY == 0:
+    score += 1
+else:
+    print("Not compliant on: 1.2.5 Set 'access-class' for 'line vty'")
+
 
 bannerCommands = ["exec","login","motd"]
 for index, command in enumerate(bannerCommands, start = 1):
