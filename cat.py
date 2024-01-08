@@ -6,7 +6,7 @@ from maskpass import askpass
 def ssh_login(ip_address, username, password, enable_password):
     connection = ConnectHandler(host = ip_address, username = username, password = password, secret = enable_password, device_type = 'cisco_ios')
     connection.enable()
-    return connection.send_command
+    return connection
 
 def COMPLIANCE_CHECK_WITH_EMPTY_RETURN(commandOutput,complianceString):
     if not commandOutput:
@@ -44,7 +44,7 @@ password = askpass("Password: ")
 enable_password = askpass("Enable: ")
 
 try:
-    send = ssh_login(ip_address, username, password, enable_password)
+    send = ssh_login(ip_address, username, password, enable_password).send_command
 except:
     print("Error 0001 - Unable to login to the target router, check IP address and login credentials.")
     print("Exiting the Onyx: CAAAT...")
@@ -659,4 +659,4 @@ else:
 
 print(score) 
 print("Closing Connection")
-connection.disconnect
+ssh_login.disconnect
